@@ -1,0 +1,151 @@
+stages:
+  - build
+  - deploy
+
+.backend_template: &backend_definition
+  cache:
+    policy: pull-push
+    key: ${CI_PROJECT_NAME}-backend
+    paths:
+      - packages/
+      - tools/
+  only:
+    changes:
+      - "**/*.{cs,csproj,cshtml}"
+      - "*.sln"
+  except:
+    - schedules
+
+backend-build:
+  tags:
+    - dotnet
+    - build
+  <<: *backend_definition
+  stage: build
+  script:
+    - yarn build
+
+
+.credentials_flow_template: &credentials_flow_definition
+  when: manual
+  stage: deploy
+  tags:
+    - ubuntu
+    - bash
+    - deploy
+  before_script:
+    - aws configure set aws_access_key_id $aws_access_key_id
+    - aws configure set aws_secret_access_key $aws_secret_access_key
+    - aws configure set region $region
+    - aws configure set output $output
+  after_script:
+    - rm -R ~/.aws
+
+aws-deliver:
+  <<: *credentials_flow_definition
+  script:
+    - yarn compose:build:aws
+    - aws configure list
+    - bash .aws/deliver.sh
+  only:
+    - aws
+
+development-deploy:
+  tags:
+    - bash
+    - ubuntu
+    - deploy
+  stage: deploy
+  script:
+    - yarn compose:build:development
+    - yarn compose:up:development
+  cache:
+    policy: pull-push
+    key: ${CI_PROJECT_NAME}-backend
+    paths:
+      - packages/
+      - tools/
+  only:
+    - development
+  except:
+    - schedules
+
+staging-deploy:
+  tags:
+    - bash
+    - ubuntu
+    - deploy
+  stage: deploy
+  script:
+    - yarn compose:build:staging
+    - yarn compose:up:staging
+  cache:
+    policy: pull-push
+    key: ${CI_PROJECT_NAME}-backend
+    paths:
+      - packages/
+      - tools/
+  only:
+    - staging
+  except:
+    - schedules
+
+development-k8s-deliver:
+  image: $DTR_HOST/complevo/gitlab-runner-dind:5.0.1
+  when: manual
+  stage: build
+  tags:
+    - dnd
+  script:
+    - /scripts/authenticate-to-cloud-dtr.sh
+    - docker build -t $CLOUD_DTR_HOST/makeo/reportgenerator:development -f src/Complevo.ReportGenerator.App/Dockerfile .
+    - docker push $CLOUD_DTR_HOST/makeo/reportgenerator:development
+  only:
+    - development
+  except:
+    - schedules
+
+staging-k8s-deliver:
+  image: $DTR_HOST/complevo/gitlab-runner-dind:5.0.1
+  when: manual
+  stage: build
+  tags:
+    - dnd
+  script:
+    - /scripts/authenticate-to-cloud-dtr.sh
+    - docker build -t $CLOUD_DTR_HOST/makeo/reportgenerator:staging -f src/Complevo.ReportGenerator.App/Dockerfile .
+    - docker push $CLOUD_DTR_HOST/makeo/reportgenerator:staging
+  only:
+    - staging
+  except:
+    - schedules
+
+development-k8s-deploy:
+  image: $DTR_HOST/complevo/gitlab-runner-dind:5.0.1
+  when: manual
+  stage: deploy
+  script:
+    - . /scripts/kubectl-login.sh
+    - cd deployment/k8s
+    - helm upgrade --install reportgenerator charts/makeo -f development/reportgenerator.yml -n makeo-development
+  only:
+    - development
+  except:
+    - schedules
+  tags:
+    - dnd
+
+staging-k8s-deploy:
+  image: $DTR_HOST/complevo/gitlab-runner-dind:5.0.1
+  when: manual
+  stage: deploy
+  script:
+    - . /scripts/kubectl-login.sh
+    - cd deployment/k8s
+    - helm upgrade --install reportgenerator charts/makeo -f staging/reportgenerator.yml -n makeo-staging
+  only:
+    - staging
+  except:
+    - schedules
+  tags:
+    - dnd

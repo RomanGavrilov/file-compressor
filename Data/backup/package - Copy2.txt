@@ -1,0 +1,16 @@
+{
+    "name": "report-generator",
+    "version": "0.0.1",
+    "repository": "git@git.complevo.berlin:bauzeit/services/report-generator.git",
+  
+    "scripts": {
+      "run": "dotnet run --project src/Complevo.ReportGenerator.App/Complevo.ReportGenerator.App.csproj",
+      "build": "dotnet build -nodeReuse:false src/Complevo.ReportGenerator.App/Complevo.ReportGenerator.App.csproj",
+      "install": "dotnet restore",
+  
+      "compose:build:aws": "cd deployment && docker-compose -f docker-compose.aws.yml build",
+     
+      "__end__": ""
+    }
+  }
+  

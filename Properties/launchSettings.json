@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "LearnNet.DataProcessor": {
+      "commandName": "Project",
+      "commandLineArgs": "--dir C:\\Users\\rgavrilov\\Desktop\\Repository\\LearnNet\\LearnNet.DataProcessor\\Data\\in TEXT"
+    }
+  }
+}
